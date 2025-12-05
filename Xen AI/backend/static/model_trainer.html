@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Model Trainer — Xen AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+
+  
+  <div class="page">
+    <!-- NAVBAR -->
+    <header class="navbar" role="banner">
+      <div class="nav-brand">
+        <div class="brand-logo">✦</div>
+        <a class="brand-text" href="/" id="homeLink">Xen AI</a>
+      </div>
+
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="/" id="navHome">Home</a>
+        <a href="/static/upload_seed.html" id="navSeeds">Seeds</a>
+        <a href="/static/upload_unlabeled.html" id="navUnlabeled">Unlabeled</a>
+        <a href="/static/model_trainer.html" id="navModel" class="active">Model Trainer</a>
+      </nav>
+
+      <!-- Quick action -->
+      <div style="margin-left:12px;">
+        <button id="btnShowChoice" class="button-link ghost">Get API Key / Download Model</button>
+      </div>
+    </header>
+
+    <!-- MAIN HERO -->
+    <main class="main" role="main">
+      <section class="hero">
+        <div class="hero-text">
+          <h1 class="hero-title">Welcome to Xen AI</h1>
+          <p class="hero-subtitle">Train your dataset, generate images, or convert text to speech — all from one place.</p>
+
+          <!-- Top buttons -->
+          <div class="button-group">
+            <a href="/static/upload_seed.html" class="button-link">Label Sample Images</a>
+            <a href="/static/upload_unlabeled.html" class="button-link ghost">Upload Unlabeled Images</a>
+          </div>
+
+          <!-- Recent uploads thumbnails (optional) -->
+          <div class="recent-uploads" id="recentUploads" aria-live="polite" style="display:none; margin-top:12px;">
+            <div style="color:rgba(240,248,255,0.95); font-weight:700;">Recently uploaded</div>
+            <div class="row" id="recentRow" style="display:flex; gap:8px; margin-top:8px;"></div>
+            <div id="noUploads" style="color:rgba(255,255,255,0.6); display:none; margin-top:8px;">
+              No recent uploads yet. Use Upload Unlabeled Images to add files.
+            </div>
+          </div>
+
+          <!-- Train block -->
+          <div class="session-block">
+            <button id="runAutolabelBtn" class="button-link special hero-run" disabled>Train Model</button>
+            <div id="autolabelStatus" class="status-text"></div>
+          </div>
+
+          <!-- Project info (shown after successful creation) -->
+          <div id="apiInfo" class="project-card" style="display:none; margin-top:18px;">
+            <h3>Project Created</h3>
+            <p>Save these credentials securely.</p>
+            <div class="row"><b>Project ID:</b> <span id="outProjectId"></span></div>
+            <div class="row" style="margin-top:8px;"><b>API Key:</b> <code id="outApiKey" class="api-pill">(not shown)</code></div>
+
+            <div style="margin-top:12px; display:flex; gap:10px; justify-content:flex-end;">
+              <button id="copyKeyBtn" class="button-link ghost">Copy API Key</button>
+              <a id="downloadCsv" class="button-link" style="display:none;" target="_blank" rel="noopener">Download CSV</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- decorative waves -->
+    <div class="wave wave-1"></div>
+    <div class="wave wave-2"></div>
+    <div class="wave wave-3"></div>
+  </div>
+
+  <!-- Project credential modal (shown once if API key produced) -->
+  <div id="modalBackdrop" class="modal-backdrop" style="display:none;">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h3 id="modalTitle">Project Created</h3>
+      <div class="row"><b>Project ID:</b> <span id="mProjectId"></span></div>
+      <div class="row"><b>API Key:</b> <code id="mApiKey" class="key"></code></div>
+      <p class="modal-hint">Copy and store the API key safely — it will only be displayed now.</p>
+      <div class="actions">
+        <button class="secondary" id="modalCopyKeyBtn">Copy API Key</button>
+        <button id="closeModalBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export choice modal (small chooser) -->
+  <div id="exportChoiceModal" class="modal-backdrop" style="display:none;">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3>Choose action</h3>
+      <p>Would you like to view the API key or download the trained model?</p>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+        <button id="btnApiKeyOnly" class="button-link ghost">Show API Key</button>
+        <button id="btnModelDownload" class="button-link">Download Model</button>
+        <button id="btnExportCancel" class="button-link ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export results area (links) -->
+  <div id="exportResults" style="display:none; position:fixed; right:18px; bottom:18px; z-index:1200;">
+    <div class="project-card" style="max-width:360px;">
+      <div style="font-weight:700; margin-bottom:8px;">Model exports</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+        <!-- kept p5/tfjs hidden but present; we will show only ONNX & PT by default -->
+        <a id="dlOnnx" class="button-link ghost" style="display:none;" target="_blank" rel="noopener">Download ONNX</a>
+        <a id="dlPt" class="button-link ghost" style="display:none;" target="_blank" rel="noopener">Download PyTorch (.pt)</a>
+        <a id="dlZip" class="button-link" style="display:none;" target="_blank" rel="noopener">Download ZIP</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  /**********************
+    Helper: recent uploads (from localStorage)
+  **********************/
+  function loadRecentUploads() {
+    const raw = localStorage.getItem('latest_uploads');
+    const container = document.getElementById('recentUploads');
+    const row = document.getElementById('recentRow');
+    const noUploads = document.getElementById('noUploads');
+
+    row.innerHTML = '';
+    if (!raw) {
+      container.style.display = 'none';
+      return;
+    }
+    let arr = null;
+    try { arr = JSON.parse(raw); } catch(e) { arr = null; }
+
+    if (!Array.isArray(arr) || arr.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
+    arr.forEach(item => {
+      const wrap = document.createElement('div');
+      wrap.style.width = '120px';
+      wrap.style.textAlign = 'center';
+
+      const img = document.createElement('img');
+      img.src = item.data;
+      img.alt = item.name || 'uploaded';
+      img.style.width = '120px';
+      img.style.height = '90px';
+      img.style.objectFit = 'cover';
+      img.style.borderRadius = '8px';
+      img.style.boxShadow = '0 8px 20px rgba(0,0,0,0.35)';
+
+      const caption = document.createElement('div');
+      caption.textContent = item.name || '';
+      caption.style.fontSize = '12px';
+      caption.style.marginTop = '6px';
+      caption.style.color = 'rgba(255,255,255,0.85)';
+
+      wrap.appendChild(img);
+      wrap.appendChild(caption);
+      row.appendChild(wrap);
+    });
+  }
+
+  /**********************
+    Session / Train logic
+  **********************/
+  const runBtn = document.getElementById('runAutolabelBtn');
+  const statusEl = document.getElementById('autolabelStatus');
+
+  const apiInfo = document.getElementById('apiInfo');
+  const outProject = document.getElementById('outProjectId');
+  const outApiKey = document.getElementById('outApiKey');
+
+  const modalBackdrop = document.getElementById('modalBackdrop');
+  const mProjectId = document.getElementById('mProjectId');
+  const mApiKey = document.getElementById('mApiKey');
+  const modalCopyKeyBtn = document.getElementById('modalCopyKeyBtn');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+
+  const copyKeyBtn = document.getElementById('copyKeyBtn');
+  const downloadCsv = document.getElementById('downloadCsv');
+
+  async function fetchLatestSession() {
+    try {
+      const res = await fetch('/latest-session');
+      if (!res.ok) return null;
+      const j = await res.json().catch(()=>null);
+      return j && j.session ? j.session : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function refreshSessionState() {
+    statusEl.textContent = '';
+    statusEl.className = 'status-text';
+
+    const session = await fetchLatestSession();
+    if (!session) {
+      runBtn.disabled = true;
+      runBtn.innerText = ' Train Model';
+      statusEl.classList.add('status-warning');
+      statusEl.textContent = 'Upload unlabeled images to enable training.';
+      return null;
+    }
+
+    runBtn.disabled = false;
+    runBtn.innerText = ' Train Model';
+    statusEl.textContent = '';
+    statusEl.classList.remove('status-warning','status-error','status-success');
+    return session;
+  }
+
+  runBtn.addEventListener('click', async () => {
+    if (runBtn.disabled) return;
+    statusEl.className = 'status-text';
+    statusEl.textContent = ' Looking for latest session...';
+    runBtn.disabled = true;
+
+    const session = await fetchLatestSession();
+    if (!session) {
+      statusEl.classList.add('status-warning');
+      statusEl.textContent = 'Upload unlabeled images to enable training.';
+      runBtn.disabled = true;
+      return;
+    }
+
+    statusEl.textContent = ` Running AutoLabel for session ${session} and creating project...`;
+    statusEl.classList.remove('status-warning','status-error','status-success');
+
+    try {
+      const url = `/autolabel/${encodeURIComponent(session)}?create_project=true`;
+      const res = await fetch(url, { method: 'POST' });
+
+      if (!res.ok) {
+        const text = await res.text().catch(()=> 'server error');
+        statusEl.classList.add('status-error');
+        statusEl.textContent = ` AutoLabel failed: ${text}`;
+        runBtn.disabled = false;
+        return;
+      }
+
+      const data = await res.json().catch(()=>null);
+      if (!data) {
+        statusEl.classList.add('status-error');
+        statusEl.textContent = ' AutoLabel finished but returned invalid JSON.';
+        runBtn.disabled = false;
+        return;
+      }
+
+      // success UI
+      const csvLink = data.output_csv ? data.output_csv : `/output/${session}.csv`;
+      statusEl.classList.add('status-success');
+      statusEl.innerHTML =
+        ` AutoLabel finished.<br>Images labeled: <strong>${data.count ?? 0}</strong><br>` +
+        `<a href="${csvLink}" target="_blank" download> Download CSV</a>`;
+
+      // Project / API key
+      if (data.project_id) {
+        outProject.textContent = data.project_id;
+        apiInfo.style.display = 'block';
+
+        if (data.api_key) {
+          outApiKey.textContent = data.api_key;
+          mProjectId.textContent = data.project_id;
+          mApiKey.textContent = data.api_key;
+          modalBackdrop.style.display = 'flex';
+        } else {
+          outApiKey.textContent = '(not shown)';
+          mProjectId.textContent = data.project_id;
+          mApiKey.textContent = '(not shown)';
+          modalBackdrop.style.display = 'flex';
+        }
+      }
+
+      // csv link button
+      if (downloadCsv) {
+        downloadCsv.href = csvLink;
+        downloadCsv.style.display = 'inline-flex';
+      }
+
+    } catch (err) {
+      console.error('autolabel error', err);
+      statusEl.classList.add('status-error');
+      statusEl.textContent = 'Network or server error while running AutoLabel.';
+    } finally {
+      await refreshSessionState();
+    }
+  });
+
+  /**********************
+    Modal helpers
+  **********************/
+  function openModal(projectId, apiKey) {
+    if (!projectId) return;
+    mProjectId.textContent = projectId || '';
+    mApiKey.textContent = apiKey || '(not shown)';
+    modalBackdrop.style.display = 'flex';
+  }
+  function closeModal() { modalBackdrop.style.display = 'none'; }
+  closeModalBtn.addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', (e) => { if (e.target === modalBackdrop) closeModal(); });
+
+  modalCopyKeyBtn.addEventListener('click', async () => {
+    const txt = mApiKey.textContent || '';
+    if (!txt || txt === '(not shown)') { alert('No API key'); return; }
+    try { await navigator.clipboard.writeText(txt); alert('API key copied'); } catch { alert('Copy failed'); }
+  });
+
+  copyKeyBtn.addEventListener('click', async () => {
+    const txt = outApiKey.textContent || '';
+    if (!txt || txt === '(not shown)') { alert('No API key'); return; }
+    try { await navigator.clipboard.writeText(txt); alert('API key copied'); } catch { alert('Copy failed'); }
+  });
+
+  /**********************
+    Export / Download logic
+    - Uses /projects/{id}/export (POST) then triggers a download of the ZIP at /projects/{id}/download-zip
+    - Also surfaces direct ONNX + PT links returned by export endpoint
+  **********************/
+  const btnShowChoice = document.getElementById('btnShowChoice');
+  const exportModal = document.getElementById('exportChoiceModal');
+  const btnApiKeyOnly = document.getElementById('btnApiKeyOnly');
+  const btnModelDownload = document.getElementById('btnModelDownload');
+  const btnExportCancel = document.getElementById('btnExportCancel');
+
+  const exportResults = document.getElementById('exportResults');
+  const dlOnnx = document.getElementById('dlOnnx');
+  const dlPt = document.getElementById('dlPt');
+  const dlZip = document.getElementById('dlZip');
+
+  btnShowChoice.addEventListener('click', () => {
+    exportModal.style.display = 'flex';
+  });
+  btnExportCancel.addEventListener('click', () => { exportModal.style.display = 'none'; });
+
+  // Show API Key: open credential modal
+  btnApiKeyOnly.addEventListener('click', () => {
+    exportModal.style.display = 'none';
+    const pid = document.getElementById('outProjectId')?.textContent || '';
+    const key = document.getElementById('outApiKey')?.textContent || '(not shown)';
+    openModal(pid, key === '(not shown)' ? null : key);
+  });
+
+  // Download model: call export endpoint then download zip
+  btnModelDownload.addEventListener('click', async () => {
+    exportModal.style.display = 'none';
+
+    // set status
+    statusEl.className = 'status-text';
+    statusEl.textContent = 'Preparing model exports — this may take a few seconds...';
+
+    const pid = document.getElementById('outProjectId')?.textContent;
+    if (!pid) {
+      alert('No project ID found. Run AutoLabel first to create a project.');
+      statusEl.textContent = '';
+      return;
+    }
+
+    try {
+      // Generate exports (ONNX + PT) on backend
+      const res = await fetch(`/projects/${encodeURIComponent(pid)}/export`, { method: 'POST' });
+      const j = await res.json().catch(()=>({}));
+      if (!res.ok) {
+        const msg = j.error || j.downloads?.onnx_error || j.downloads?.pt_error || 'Export failed';
+        statusEl.classList.add('status-error');
+        statusEl.textContent = msg;
+        return;
+      }
+
+      // show individual links if available
+      const dl = j.downloads || {};
+      if (dl.onnx) {
+        dlOnnx.href = dl.onnx;
+        dlOnnx.style.display = 'inline-flex';
+      } else {
+        dlOnnx.style.display = 'none';
+      }
+      if (dl.pt) {
+        dlPt.href = dl.pt;
+        dlPt.style.display = 'inline-flex';
+      } else {
+        dlPt.style.display = 'none';
+      }
+
+      // show and also prepare the zip download link (single-click for everything)
+      const zipUrl = `/projects/${encodeURIComponent(pid)}/download-zip`;
+      dlZip.href = zipUrl;
+      dlZip.style.display = 'inline-flex';
+      exportResults.style.display = 'block';
+      statusEl.classList.add('status-success');
+      statusEl.textContent = 'Export ready — downloading combined ZIP now.';
+
+      // trigger automatic download of ZIP (navigating to zip URL triggers download in browser)
+      // Use a hidden link to avoid losing app state
+      const a = document.createElement('a');
+      a.href = zipUrl;
+      a.download = `xen_project_${pid}_exports.zip`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=> { try { a.remove(); } catch(e){} }, 2000);
+
+    } catch (err) {
+      console.error('export error', err);
+      statusEl.classList.add('status-error');
+      statusEl.textContent = 'Export request failed.';
+    }
+  });
+
+  /**********************
+    Nav helpers: highlight active link & avoid reload
+  **********************/
+  function markActiveNav() {
+    const path = window.location.pathname.replace(/\/$/,'');
+    const map = {
+      '/': 'navHome',
+      '/index.html': 'navHome',
+      '/static/model_trainer.html': 'navModel',
+      '/static/upload_seed.html': 'navSeeds',
+      '/static/upload_unlabeled.html': 'navUnlabeled'
+    };
+    const id = map[path] || null;
+    if (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+    }
+    ['navHome','navModel'].forEach(k => {
+      const node = document.getElementById(k);
+      if (!node) return;
+      node.addEventListener('click', (e) => {
+        const href = node.getAttribute('href');
+        if (!href) return;
+        const url = new URL(href, window.location.origin);
+        if (url.pathname === window.location.pathname) {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    });
+  }
+
+  /**********************
+    Init on DOMContentLoaded
+  **********************/
+  document.addEventListener('DOMContentLoaded', () => {
+    // Hide splash after a short delay
+    setTimeout(()=> {
+      document.body.classList.add('splash-done');
+      const splash = document.getElementById('splash');
+      if (splash) splash.style.display = 'none';
+    }, 1800);
+
+    loadRecentUploads();
+    markActiveNav();
+    (async () => { await refreshSessionState(); })();
+    setInterval(refreshSessionState, 15000);
+  });
+  </script>
+</body>
+</html>

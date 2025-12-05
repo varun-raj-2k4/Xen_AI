@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Xen AI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <!-- SPLASH / INTRO SCREEN -->
+  <div id="splash" class="splash" role="dialog" aria-hidden="false">
+    <div class="splash-inner">
+      <div class="splash-logo">
+        <span class="splash-logo-main">XEN</span>
+        <span class="splash-logo-sub">AI</span>
+      </div>
+      <div class="splash-tagline">The future of AI-Powered Automation</div>
+    </div>
+  </div>
+
+  <div class="page">
+    <!-- Top Header (minimal) -->
+    <header class="navbar" role="banner">
+      <div class="nav-brand">
+        <div class="brand-logo">✦</div>
+        <span class="brand-text">Xen AI</span>
+      </div>
+    </header>
+
+    <!-- Main hero section -->
+    <main class="main" role="main">
+      <section class="hero">
+        <div class="hero-text">
+          <h1 class="hero-title">Welcome to Xen AI</h1>
+          <p class="hero-subtitle">A simple place to train models, generate images and convert text to speech.</p>
+
+          <!-- Feature cards -->
+          <div class="feature-grid" aria-label="AI Features">
+            <div class="feature-card" role="article" aria-labelledby="feat-trainer">
+              <div class="feature-content">
+                <h3 id="feat-trainer">Model Trainer</h3>
+                <p>Train your dataset, produce labels, and export results.</p>
+              </div>
+              <a class="feature-button" href="/static/model_trainer.html">Open Model Trainer</a>
+            </div>
+
+            <div class="feature-card" role="article" aria-labelledby="feat-image">
+              <div class="feature-content">
+                <h3 id="feat-image">Image Generator</h3>
+                <p>Create images from prompts — try different styles and variations.</p>
+              </div>
+              <a class="feature-button" href="/static/Image_generator.html">Open Image Generator</a>
+            </div>
+
+            <div class="feature-card" role="article" aria-labelledby="feat-tts">
+              <div class="feature-content">
+                <h3 id="feat-tts">Text → Speech</h3>
+                <p>Convert written text to natural-sounding speech quickly.</p>
+              </div>
+              <a class="feature-button" href="/static/text_to_speech.html">Open Text to Speech</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Decorative waves -->
+    <div class="wave wave-1"></div>
+    <div class="wave wave-2"></div>
+    <div class="wave wave-3"></div>
+  </div>
+
+  <!-- Minimal JS: splash hide and small home behavior -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const splash = document.getElementById('splash');
+
+      // Auto-hide splash after 2.6s
+      setTimeout(() => {
+        document.body.classList.add('splash-done');
+        if (splash) splash.setAttribute('aria-hidden', 'true');
+      }, 2600);
+
+      // Allow click to skip splash immediately
+      if (splash) {
+        splash.addEventListener('click', () => {
+          document.body.classList.add('splash-done');
+          splash.setAttribute('aria-hidden', 'true');
+        });
+      }
+
+      // If someone clicks the brand, scroll to top instead of reload
+      const brand = document.querySelector('.brand-text');
+      if (brand) {
+        brand.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      }
+    });
+  </script>
+</body>
+</html>

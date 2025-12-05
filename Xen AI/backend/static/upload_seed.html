@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Upload Seed Images</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="page">
+    <header class="navbar">
+      <div class="nav-brand">
+        <div class="brand-logo">✦</div>
+        <span class="brand-text">Xen AI</span>
+      </div>
+      <nav class="nav-links">
+        <a href="/">Home</a>
+        
+        <a href="/static/upload_seed.html" class="active">Seeds</a>
+        <a href="/static/upload_unlabeled.html">Unlabeled</a>
+        <a href="/static/model_trainer.html" id="navModel">Model Trainer</a>
+      </nav>
+    </header>
+
+    <main class="main">
+      <section class="card form-card">
+        <h1 class="page-title">Upload Seed Images</h1>
+        <p class="page-subtitle">
+          Provide a few labeled examples for each class. These examples are used to
+          build class prototypes.
+        </p>
+
+        <form id="seedForm" enctype="multipart/form-data">
+          <label for="label">Label name</label>
+          <input type="text" name="label" id="label" placeholder="e.g. cat" required>
+
+          <label for="files">Choose seed images</label>
+          <input type="file" name="files" id="files" multiple required>
+
+          <button type="submit" class="button-link special full-width">
+            Upload Seed Images
+          </button>
+        </form>
+
+        <div id="response" class="status-text" style="margin-top:15px;"></div>
+      </section>
+    </main>
+
+    <div class="wave wave-1"></div>
+    <div class="wave wave-2"></div>
+    <div class="wave wave-3"></div>
+  </div>
+
+  <script>
+    document.getElementById("seedForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const responseEl = document.getElementById("response");
+      responseEl.className = "status-text";
+      responseEl.textContent = "Uploading...";
+      try {
+        await fetch("/upload-seed", { method: "POST", body: new FormData(e.target) });
+        responseEl.classList.add("status-success");
+        responseEl.textContent = "Seed images uploaded successfully!";
+      } catch (err) {
+        console.error(err);
+        responseEl.classList.add("status-error");
+        responseEl.textContent = "Upload failed (network error).";
+      }
+    }, { capture: true });
+  </script>
+</body>
+</html>
